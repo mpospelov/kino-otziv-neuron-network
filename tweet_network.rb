@@ -28,7 +28,7 @@ class TweetAnalyze
     g = Gruff::Line.new
     g.title = 'Gruff Example'
     # g.data "Train data MSE", @mse_errors_train
-    g.data "Test data MSE", @@mse_train_errors
+    g.data "Test data MSE", @@mse_test_errors
     g
   end
 
@@ -54,13 +54,12 @@ class TweetAnalyze
     @json_test_data.inputs.each_with_index do |test_input, index|
       tweet = @json_test_data.get_tweet(index)
       result = network.run(test_input)
-      # puts "#{tweet[:name]} <<<<->>> #{result}"
       error = (result.first - tweet[:value]["weight"])**2
-      # @mse_errors_test << error
       @minserror_test += error
     end
     @minserror_test = @minserror_test / (2 * @json_test_data.inputs.count)
     puts "Error: #{@minserror_test}"
+    @@mse_test_errors << @minserror_test
   end
 
   def train
@@ -68,10 +67,13 @@ class TweetAnalyze
   end
 
   def self.run_network
-    analyze_with_network = TweetAnalyze.new train_file: "calculate_error/1000_collection.json", 
-                     test_file: "calculate_error/test_collection.json"
-    analyze_with_network.train
-    analyze_with_network.run
+    train_data_files = Dir["calculate_error/[0-9]*_collection*"]
+    train_data_files.each do |train_file|
+      analyze_with_network = TweetAnalyze.new train_file: train_file, 
+                                              test_file: "calculate_error/test_collection.json"
+      analyze_with_network.train
+      analyze_with_network.run
+    end
   end
     
   class JSONNetworkData
