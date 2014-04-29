@@ -5,85 +5,31 @@ require 'gruff'
 require 'ruby_fann/neurotica'
 
 
-class Tweet
+class TweetAnalyze
   MAX_EPOCH = 100
   DESIRED_MSE = 0.01
 
+  INPUTS_SIZE = 144
 
-  @inputs_size = 144
-  @mse_errors_train = []
-  @mse_errors_test = []
+  @@mse_train_errors = []
+  @@mse_test_errors = []
 
+  attr_accessor :json_test_data, :json_train_data, :minserror_train, :minserror_test,
+                :network, :train_data, :network
+
+  def initialize=(train_file: nil, test_file: nil)
+    @json_test_data = JSONNetworkData.new(test_file)
+    @json_train_data = JSONNetworkData.new(train_file)
+    @minserror_train, @minserror_test = 0
+    build_neuron_network
+  end
 
   def self.draw_plot
     g = Gruff::Line.new
     g.title = 'Gruff Example'
     # g.data "Train data MSE", @mse_errors_train
-    g.data "Test data MSE", @mse_errors_test
+    g.data "Test data MSE", @@mse_train_errors
     g
-  end
-
-  def self.build_train_data
-    @train_data = RubyFann::TrainData.new(inputs: inputs, desired_outputs: outputs)
-  end
-
-  def self.build_neuron_network  
-    @network = RubyFann::Standard.new(num_inputs: @inputs_size, hidden_neurons: [@inputs_size/2, @inputs_size/4], num_outputs: 1)
-  end
-
-  def self.file=(file)
-    @file = File.read(file)
-    @json_data = JSON.parse(@file)
-  end
-    
-  def self.get_tweet(index)
-    record = @json_data.to_a[index]
-    attrs = {}
-    attrs[:name] = record[0]
-    attrs[:value] = record[1]
-    attrs
-  end
-
-  def self.inputs
-    @inputs ||= begin
-      result = []
-      @json_data.map do |tweet, data|
-        result << data["code"].split("").map(&:to_i)
-      end
-      result
-    end
-  end
-
-  def self.outputs
-    @outputs ||= begin
-      result = []
-      @json_data.map do |tweet, data|
-        result << [data["weight"].to_f]
-      end
-      result
-    end
-  end
-
-  def self.run_network
-    network = Tweet.build_neuron_network
-    network.set_activation_function_hidden(:sigmoid_symmetric)
-    network.set_activation_function_output(:sigmoid_symmetric)
-    network.set_train_stop_function(:mse) 
-
-    train_data = Tweet.build_train_data
-    network.train_on_data(train_data, MAX_EPOCH, 10, DESIRED_MSE)
-    Tweet.file = "calculate_error/test_collection.json"
-    minserror = 0
-    Tweet.inputs.each_with_index do |test_input, index|
-      tweet = Tweet.get_tweet(index)
-      result = network.run(test_input)
-      # puts "#{tweet[:name]} <<<<->>> #{result}"
-      error = (result.first - tweet[:value]["weight"])**2
-      # @mse_errors_test << error
-      minserror += error
-    end
-    minserror = minserror/(2*Tweet.inputs.count)
-    puts "Error: #{minserror}"
   end
 
   def self.draw_neurotica_plot
@@ -91,8 +37,82 @@ class Tweet
     paint.graph(@network, "tmp/plot.png")
     File.open("tmp/plot.png")
   end
+
+  def build_neuron_network  
+    @network = RubyFann::Standard.new num_inputs: INPUTS_SIZE, 
+                                      hidden_neurons: [INPUTS_SIZE/2, INPUTS_SIZE/4], 
+                                      num_outputs: 1
+
+    network.set_activation_function_hidden(:sigmoid_symmetric)
+    network.set_activation_function_output(:sigmoid_symmetric)
+    network.set_train_stop_function(:mse) 
+  end
+
+  def run
+    # self.file = "calculate_error/test_collection.json"
+    # minserror = 0
+    @json_test_data.inputs.each_with_index do |test_input, index|
+      tweet = @json_test_data.get_tweet(index)
+      result = network.run(test_input)
+      # puts "#{tweet[:name]} <<<<->>> #{result}"
+      error = (result.first - tweet[:value]["weight"])**2
+      # @mse_errors_test << error
+      @minserror_test += error
+    end
+    @minserror_test = @minserror_test / (2 * @json_test_data.inputs.count)
+    puts "Error: #{@minserror_test}"
+  end
+
+  def train
+    network.train_on_data(@json_train_data.build_train_data, MAX_EPOCH, 10, DESIRED_MSE)
+  end
+
+  def self.run_network
+    analyze_with_network = TweetAnalyze.new train_file: "calculate_error/1000_collection.json", 
+                     test_file: "calculate_error/test_collection.json"
+    analyze_with_network.train
+    analyze_with_network.run
+  end
+    
+  class JSONNetworkData
+    attr_accessor :data, :inputs, :outputs, :train_data
+
+    def initialize(file_path)
+      @data = JSON.parse File.read(file_path)
+    end
+
+    def inputs
+      @inputs ||= begin
+        result = []
+        @data.map do |tweet, data|
+          result << data["code"].split("").map(&:to_i)
+        end
+        result
+      end
+    end
+
+    def get_tweet(index)
+      record = @json_data.to_a[index]
+      attrs = {}
+      attrs[:name] = record[0]
+      attrs[:value] = record[1]
+      attrs
+    end
+
+    def outputs
+      @outputs ||= begin
+        result = []
+        @json_data.map do |tweet, data|
+          result << [data["weight"].to_f]
+        end
+        result
+      end
+    end
+
+    def build_train_data
+      @train_data ||= RubyFann::TrainData.new inputs: inputs, desired_outputs: outputs
+    end
+
+  end
+
 end
-
-# ((x1 - xr2)**2 + .... + (xn - xrn)**2)/2n 
-
-
