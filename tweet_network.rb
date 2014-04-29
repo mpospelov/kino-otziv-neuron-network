@@ -6,10 +6,10 @@ require 'ruby_fann/neurotica'
 
 
 class TweetAnalyze
-  MAX_EPOCH = 100
-  DESIRED_MSE = 0.01
+  MAX_EPOCH ||= 100
+  DESIRED_MSE ||= 0.01
 
-  INPUTS_SIZE = 144
+  INPUTS_SIZE ||= 144
 
   @@mse_train_errors = []
   @@mse_test_errors = []
@@ -17,10 +17,10 @@ class TweetAnalyze
   attr_accessor :json_test_data, :json_train_data, :minserror_train, :minserror_test,
                 :network, :train_data, :network
 
-  def initialize=(train_file: nil, test_file: nil)
+  def initialize(train_file: nil, test_file: nil)
     @json_test_data = JSONNetworkData.new(test_file)
     @json_train_data = JSONNetworkData.new(train_file)
-    @minserror_train, @minserror_test = 0
+    @minserror_train = @minserror_test = 0
     build_neuron_network
   end
 
@@ -92,7 +92,7 @@ class TweetAnalyze
     end
 
     def get_tweet(index)
-      record = @json_data.to_a[index]
+      record = @data.to_a[index]
       attrs = {}
       attrs[:name] = record[0]
       attrs[:value] = record[1]
@@ -102,7 +102,7 @@ class TweetAnalyze
     def outputs
       @outputs ||= begin
         result = []
-        @json_data.map do |tweet, data|
+        @data.map do |tweet, data|
           result << [data["weight"].to_f]
         end
         result
