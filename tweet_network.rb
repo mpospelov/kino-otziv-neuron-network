@@ -91,7 +91,6 @@ class Tweet
     paint.graph(@network, "tmp/plot.png")
     File.open("tmp/plot.png")
   end
-
 end
 
 # ((x1 - xr2)**2 + .... + (xn - xrn)**2)/2n 
