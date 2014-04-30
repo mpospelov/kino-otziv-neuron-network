@@ -6,7 +6,7 @@ require 'ruby_fann/neurotica'
 
 
 class TweetAnalyze
-  MAX_EPOCH ||= 100
+  MAX_EPOCH ||= 1000
   DESIRED_MSE ||= 0.01
 
   INPUTS_SIZE ||= 144
@@ -27,7 +27,7 @@ class TweetAnalyze
   def self.draw_plot
     g = Gruff::Line.new
     g.title = 'Gruff Example'
-    # g.data "Train data MSE", @mse_errors_train
+    g.data "Train data MSE", @@mse_train_errors
     g.data "Test data MSE", @@mse_test_errors
     g
   end
@@ -49,17 +49,29 @@ class TweetAnalyze
   end
 
   def run
-    # self.file = "calculate_error/test_collection.json"
-    # minserror = 0
     @json_test_data.inputs.each_with_index do |test_input, index|
       tweet = @json_test_data.get_tweet(index)
       result = network.run(test_input)
       error = (result.first - tweet[:value]["weight"])**2
       @minserror_test += error
     end
+
     @minserror_test = @minserror_test / (2 * @json_test_data.inputs.count)
     puts "Error: #{@minserror_test}"
     @@mse_test_errors << @minserror_test
+  end
+
+  def run_on_train_data
+    @json_train_data.inputs.each_with_index do |train_input, index|
+      tweet = @json_train_data.get_tweet(index)
+      result = network.run(train_input)
+      error = (result.first - tweet[:value]["weight"])**2
+      @minserror_train += error
+    end
+
+    @minserror_train = @minserror_train / (2 * @json_train_data.inputs.count)
+    puts "Train Error: #{@minserror_train}"
+    @@mse_train_errors << @minserror_train
   end
 
   def train
@@ -73,6 +85,7 @@ class TweetAnalyze
                                               test_file: "calculate_error/test_collection.json"
       analyze_with_network.train
       analyze_with_network.run
+      analyze_with_network.run_on_train_data
     end
   end
     
