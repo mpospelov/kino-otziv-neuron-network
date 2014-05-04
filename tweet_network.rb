@@ -15,12 +15,13 @@ class TweetAnalyze
   @@mse_test_errors = []
 
   attr_accessor :json_test_data, :json_train_data, :minserror_train, :minserror_test,
-                :network, :train_data, :network
+                :network, :train_data, :network, :hidden_multiplier
 
   def initialize(train_file: nil, test_file: nil)
     @json_test_data = JSONNetworkData.new(test_file)
     @json_train_data = JSONNetworkData.new(train_file)
     @minserror_train = @minserror_test = 0
+    @hidden_multiplier = 2
     build_neuron_network
   end
 
@@ -40,7 +41,8 @@ class TweetAnalyze
 
   def build_neuron_network  
     @network = RubyFann::Standard.new num_inputs: INPUTS_SIZE, 
-                                      hidden_neurons: [INPUTS_SIZE/2, INPUTS_SIZE/4], 
+                                      hidden_neurons: 
+                                        [INPUTS_SIZE * @hidden_multiplier, INPUTS_SIZE * @hidden_multiplier * 0.5], 
                                       num_outputs: 1
 
     network.set_activation_function_hidden(:sigmoid_symmetric)
@@ -83,6 +85,17 @@ class TweetAnalyze
     train_data_files.each do |train_file|
       analyze_with_network = TweetAnalyze.new train_file: train_file, 
                                               test_file: "calculate_error/test_collection.json"
+      analyze_with_network.train
+      analyze_with_network.run
+      analyze_with_network.run_on_train_data
+    end
+  end
+
+  def self.run_changing_neurons_network
+    2.upto(10).each do |hidden_multiplier|
+      analyze_with_network = TweetAnalyze.new train_file: "calculate_error/6000_collection.json", 
+                                              test_file: "calculate_error/test_collection.json"
+      analyze_with_network.hidden_multiplier = hidden_multiplier                                        
       analyze_with_network.train
       analyze_with_network.run
       analyze_with_network.run_on_train_data
